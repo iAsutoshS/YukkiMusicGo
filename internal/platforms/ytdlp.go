@@ -182,11 +182,11 @@ func (y *YtdlpPlatform) Download(
 		args = append(
 			args,
 			"-f",
-			"(b[height>=360][height<=1080]/bv*[height>=360][height<=1080]/bv*)+(ba[abr>=180][abr<=360]/ba)/b",
+			"bestvideo[height<=1080]+bestaudio/best",
 		)
 	} else {
 		args = append(args,
-			"-f", "ba[abr>=180][abr<=360]/ba",
+			"-f", "-f", "bestaudio/best",
 			"-x",
 			"--concurrent-fragments", "4",
 		)
