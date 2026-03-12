@@ -199,26 +199,31 @@ func (y *YtdlpPlatform) Download(
 
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	var buf bytes.Buffer
+	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &buf)
 
 	if err := cmd.Run(); err != nil {
-		errStr := strings.TrimSpace(stderr.String())
-		outStr := strings.TrimSpace(stdout.String())
 
-		gologging.ErrorF(
-			"YtDlp: Download failed for %s: %v\nSTDOUT:\n%s\nSTDERR:\n%s",
-			track.URL, err, outStr, errStr,
-		)
-		findAndRemove(track)
+    logs := buf.String()
 
-		if errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
-			return "", err
-		}
+    gologging.ErrorF(
+        "YtDlp: Download failed for %s: %v\nLogs:\n%s",
+        track.URL, err, logs,
+    )
 
-		return "", fmt.Errorf("yt-dlp error: %w", err)
+    findAndRemove(track)
+
+	    if errors.Is(err, context.Canceled) ||
+	        errors.Is(err, context.DeadlineExceeded) {
+	        return "", err
+	    }
+	
+	    return "", fmt.Errorf(
+	        "yt-dlp error: %w\n\nLogs:\n%s",
+	        err,
+	        logs,
+	    )
 	}
 
 	path := findFile(track)
