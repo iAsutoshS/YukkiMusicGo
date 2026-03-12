@@ -27,8 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -171,11 +169,10 @@ func (y *YtdlpPlatform) Download(
 		"--no-playlist",
 		"--no-part",
 		"--geo-bypass",
-		"-v",
-		"--extractor-args",
-		"youtube:player_client=android,web_embedded",
-		"--newline",
+		"--no-warnings",
+		"--ignore-errors",
 		"--no-check-certificate",
+		"-q",
 		"-o", getPath(track, ".%(ext)s"),
 	}
 
@@ -184,11 +181,11 @@ func (y *YtdlpPlatform) Download(
 		args = append(
 			args,
 			"-f",
-			"bestvideo[height<=1080]+bestaudio/best",
+			"(b[height>=360][height<=1080]/bv*[height>=360][height<=1080]/bv*)+(ba[abr>=180][abr<=360]/ba)/b",
 		)
 	} else {
 		args = append(args,
-			"-f", "-f", "bestaudio/best",
+			"-f", "ba[abr>=180][abr<=360]/ba",
 			"-x",
 			"--concurrent-fragments", "4",
 		)
@@ -199,35 +196,31 @@ func (y *YtdlpPlatform) Download(
 		args = append(args, "--cookies-from-browser", "firefox")
 	}
 
+
 	args = append(args, track.URL)
 
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 
-	var buf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &buf)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		errStr := strings.TrimSpace(stderr.String())
+		outStr := strings.TrimSpace(stdout.String())
 
-    logs := buf.String()
+		gologging.ErrorF(
+			"YtDlp: Download failed for %s: %v\nSTDOUT:\n%s\nSTDERR:\n%s",
+			track.URL, err, outStr, errStr,
+		)
+		findAndRemove(track)
 
-    gologging.ErrorF(
-        "YtDlp: Download failed for %s: %v\nLogs:\n%s",
-        track.URL, err, logs,
-    )
+		if errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
 
-    findAndRemove(track)
-
-	    if errors.Is(err, context.Canceled) ||
-	        errors.Is(err, context.DeadlineExceeded) {
-	        return "", err
-	    }
-	
-	    return "", fmt.Errorf(
-	        "yt-dlp error: %w\n\nLogs:\n%s",
-	        err,
-	        logs,
-	    )
+		return "", fmt.Errorf("yt-dlp error: %w", err)
 	}
 
 	path := findFile(track)
@@ -253,6 +246,7 @@ func (y *YtdlpPlatform) extractMetadata(urlStr string) (*ytdlpInfo, error) {
 	args := []string{
 		"-j",
 		"--flat-playlist",
+		"--no-warnings",
 		"--no-check-certificate",
 	}
 
