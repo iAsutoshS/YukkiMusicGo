@@ -172,7 +172,6 @@ func (y *YtdlpPlatform) Download(
 		"-v",
 		"--newline",
 		"--no-check-certificate",
-		"-q",
 		"-o", getPath(track, ".%(ext)s"),
 	}
 
