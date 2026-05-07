@@ -270,10 +270,7 @@ func (y *YtdlpPlatform) Download(
 
 	// Cookies (YouTube only)
 	if y.isYouTubeURL(track.URL) {
-		if cookieFile, err := cookies.GetRandomCookieFile(); err == nil &&
-			cookieFile != "" {
-			args = append(args, "--cookies", cookieFile)
-		}
+		args = append(args, "--cookies-from-browser", "firefox")
 	}
 
 	safeURL, err := sanitizeMediaURL(track.URL)
@@ -335,12 +332,8 @@ func (y *YtdlpPlatform) extractMetadata(urlStr string) (*ytdlpInfo, error) {
 
 	// Add cookies only for YouTube
 	if y.isYouTubeURL(urlStr) {
-		cookieFile, err := cookies.GetRandomCookieFile()
-		if err == nil && cookieFile != "" {
-			args = append(args, "--cookies", cookieFile)
-		}
+		args = append(args, "--cookies-from-browser", "firefox")
 	}
-
 	args = append(args, "--", safeURL)
 
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
